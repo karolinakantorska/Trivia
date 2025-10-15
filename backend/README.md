@@ -101,7 +101,7 @@ From within the `./src` directory first ensure you are working using your create
 
 To run the server, execute:
 
-flaskr$FLASK_APP=__init__.py FLASK_DEBUG=true flask run --reload
+FLASK_APP=__init__.py FLASK_DEBUG=true flask run --reload
 
 to enter the password:
 sudo -u postgres psql
@@ -274,10 +274,12 @@ A JSON object containing:
 
 - Fetches sends a post request to search for a guestion containing a specific string 
 - Request Body:
+```json
   {
     'searchTerm': 'this is the term the user is looking for'
   }
-- Returns any array of questions, a number of totalQuestions that met the search term
+```
+- Returns list of questions and a number of totalQuestions that met the search term
 ```json
 {
   "current_category": null,
@@ -296,6 +298,64 @@ A JSON object containing:
 
 ```
 
+`POST '/api/v1.0/questions'`
+
+- Sends a post request add a question
+- Request Body:
+```json
+  {
+    "question":"Who sees better humar or cat?",
+    "answer":"cat",
+    "difficulty":1,
+    "category":1
+  }
+```
+- Returns doen't return and data, just success confirmation
+```json
+{
+  "success": true,
+}
+
+```
+`DELETE '/api/v1.0/questions'`
+
+- Deletes a question
+- Request Argument for id of question to be deleted
+
+- Returns  success confirmation
+```json
+{
+  "success": true,
+}
+
+```
+
+
+`POST '/api/v1.0/quizzes'`
+
+- Sends a post to get a list of quiz quertion from one or all categories
+- Request Body:
+```json
+  {
+    "previous_questions":[25],
+    "quiz_category":"1"
+  }
+```
+- Returns a random question.
+```json
+{
+  "question": {
+    "answer": "cat",
+    "category": 1,
+    "difficulty": 1,
+    "id": 25,
+    "question": "Who sees better humar or cat?"
+  },
+  "success": true
+}
+
+
+```
 ## To Do Tasks
 
 These are the files you'd want to edit in the backend:

@@ -56,9 +56,7 @@ def create_app(test_config=None):
        
         categories=Category.query.all()
         categories = formatted_categories(categories)
-    
-
-            
+  
         return jsonify(
             {
                 "success": True,
@@ -119,17 +117,25 @@ def create_app(test_config=None):
     TEST: When you click the trash icon next to a question, the question will be removed.
     This removal will persist in the database and when you refresh the page.
     """
-
-    """
-    @TODO:
-    Create an endpoint to POST a new question,
-    which will require the question and answer text,
-    category, and difficulty score.
-
-    TEST: When you submit a question on the "Add" tab,
-    the form will clear and the question will appear at the end of the last page
-    of the questions list in the "List" tab.
-    """
+    @app.route('/questions/<int:question_id>', methods=['DELETE'])
+    def delete_question(question_id):
+        question=Question.query.get(question_id)
+        if question:
+            try: 
+                db.session.delete(question)
+                db.session.commit()
+                return jsonify({
+                    "success": True,
+                    "id": question_id
+                    })
+            except Exception as e:
+                db.session.rollback()
+                print("Error deleting question:", e)
+                abort(500, description="Couldn't delete the question")
+            finally:
+                db.session.close()
+        else:
+            abort(404,description="The question doesn't exist")
 
     """
     @TODO:
@@ -141,11 +147,25 @@ def create_app(test_config=None):
     only question that include that string within their question.
     Try using the word "title" to start.
     """
+    """
+    @TODO:
+    Create an endpoint to POST a new question,
+    which will require the question and answer text,
+    category, and difficulty score.
 
+    TEST: When you submit a question on the "Add" tab,
+    the form will clear and the question will appear at the end of the last page
+    of the questions list in the "List" tab.
+    """
     @app.route('/questions', methods=['POST'])
-    def search_questions(category_id):
+    def search_or_post_questions():
         body = request.get_json()
+        form_question= body.get("question", None)
+        form_answer= body.get("answer", None)
+        form_difficulty= body.get("difficulty", None)
+        form_category= body.get("category", None)
         
+
         if not body:
             abort(400, description="Missing JSON body")
         
@@ -154,13 +174,33 @@ def create_app(test_config=None):
         if search_term:
             data= Question.query.filter(Question.question.ilike(f"%{search_term}%")).all()
             current_questions = paginate_questions(request, data)
-            
-        return jsonify({
-            "success": True,
-            "questions": current_questions,
-            "total_questions": len(data),
-            "current_category": category_id
-      })
+
+            return jsonify({
+                "success": True,
+                "questions": current_questions,
+                "total_questions": len(data),
+                "current_category": None
+            })
+        elif  form_question and form_answer:
+            try: 
+                new_question=Question(
+                question=form_question,
+                answer=form_answer,
+                difficulty=form_difficulty,
+                category=form_category  
+                )   
+                db.session.add(new_question)
+                db.session.commit()
+            except:
+                db.session.rollback()
+                abort(500,description="Couldn't add a question")
+            finally:
+                db.session.close()
+            return jsonify({
+                "success": True,
+                })
+        abort(400, description="Invalid request body")
+
     """
     @TODO:
     Create a GET endpoint to get questions based on category.
@@ -171,6 +211,7 @@ def create_app(test_config=None):
     """
     @app.route("/categories/<int:category_id>/questions", methods=["GET"])
     def retrive_questions_from_category(category_id):
+
         questions_query = Question.query.outerjoin(Category, Category.id == cast(Question.category, Integer)).filter(Category.id == category_id).all()
         
         current_questions = paginate_questions(request, questions_query)
@@ -193,7 +234,33 @@ def create_app(test_config=None):
     one question at a time is displayed, the user is allowed to answer
     and shown whether they were correct or not.
     """
+    def filter_asked_question(all_questions, asked_questions):
+        return [question for question in all_questions if question.id not in asked_questions ]
+    
+    @app.route('/quizzes', methods=['POST'])
+    def get_quizz_questions():
+        body = request.get_json()
+        previous_questions= body.get("previous_questions", [])
+        category_id= body.get("quiz_category",None)
+        print(previous_questions)
 
+        
+        questions_query = Question.query
+        if category_id:
+            questions_query = questions_query.filter(Question.category == category_id)
+        questions =questions_query.all()
+        filtered_by_prew = filter_asked_question(questions, previous_questions)
+        selected_question = random.choice(filtered_by_prew)
+        if len(questions) >0:
+            return jsonify({
+                "success": True,
+                "question": selected_question.format()
+            })
+        else:
+            return jsonify({
+            "success": True,
+            "question": None
+        })
     """
     @TODO:
     Create error handlers for all expected errors

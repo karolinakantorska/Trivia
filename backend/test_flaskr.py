@@ -104,22 +104,87 @@ class TriviaTestCase(unittest.TestCase):
         res = self.client.get("/categories/abc/questions")
         self.assertEqual(res.status_code, 404)
     
-    def search_questions(self):
+    def test_search_questions(self):
         
         res = self.client.post("/questions",json={"searchTerm": "title"} )
-        
         data = res.get_json()
+        
         self.assertEqual(res.status_code, 200)
         self.assertTrue(data["success"])
         self.assertIsInstance(data["questions"], list)
         self.assertIsInstance(data["total_questions"], int)
     
-    def search_questions_invalid_missing_field(self):
+    def test_search_questions_invalid_missing_field(self):
         
         res = self.client.post("/questions",json={} )
         self.assertEqual(res.status_code, 400)
 
+    def test_add_questions(self):
+        
+        res = self.client.post("/questions",json={
+            "question":"Who sees better humar or cat?",
+            "answer":"cat",
+            "difficulty":1,
+            "category":1
+        } )
+        data = res.get_json()
+        
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(data["success"])
 
+    def test_add_questions_invalid_missing_field(self):
+        
+        res = self.client.post("/questions",json={
+            "question":"",
+            "answer":"",
+            "difficulty":1,
+            "category":1
+        } )
+        self.assertEqual(res.status_code, 400)
+
+    def test_delete_question(self):
+        with self.app.app_context():
+            new_question=Question(
+                question="test question",
+                answer="test answer",
+                difficulty=1,
+                category="1"  
+            )   
+            db.session.add(new_question)
+            db.session.commit()
+            question_to_delete=Question.query.filter(Question.question.ilike(f"%test question%")).first()
+            id=question_to_delete.id
+        res = self.client.delete("/questions/"+ str(id))
+        data = res.get_json()
+        
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(data["success"])
+        self.assertIsInstance(data["id"], int)
+    
+    def test_delete_not_existing_question(self):
+
+        res = self.client.delete("/questions/9999")
+        self.assertEqual(res.status_code, 404)
+
+    def test_get_quizz_questions(self):
+        
+        res = self.client.post("/quizzes",json={
+            "previous_questions":[],
+            "quiz_category":"1"
+        })
+        data = res.get_json()
+        
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(data["success"])
+        self.assertIsInstance(data["question"], dict)
+        
+    def test_get_quizz_questions_invalid_missing_field(self):
+        
+        res = self.client.post("/quizzes",json={
+            "previous_questions":[],
+            "quiz_category":"Science"
+        })
+        self.assertEqual(res.status_code, 500)
 # Make the tests conveniently executable
 if __name__ == "__main__":
     unittest.main()

@@ -100,7 +100,7 @@ class FormView extends Component {
               })}
             </select>
           </label>
-          <input type='submit' className='button' value='Submit' />
+          <input type='submit' className='button' value='Submit' disabled={this.state.question === '' ||this.state.answer === '' } />
         </form>
       </div>
     );

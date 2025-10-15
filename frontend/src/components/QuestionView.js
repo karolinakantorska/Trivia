@@ -5,6 +5,7 @@ import Search from './Search';
 import $ from 'jquery';
 
 class QuestionView extends Component {
+
   constructor() {
     super();
     this.state = {
@@ -19,6 +20,8 @@ class QuestionView extends Component {
   componentDidMount() {
     this.getQuestions();
   }
+
+
 
   getQuestions = () => {
     $.ajax({

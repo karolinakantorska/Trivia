@@ -18,7 +18,7 @@ class QuizView extends Component {
       forceEnd: false,
     };
   }
-
+  
   componentDidMount() {
     $.ajax({
       url: `/categories`, //TODO: update request URL
@@ -55,13 +55,14 @@ class QuizView extends Component {
       contentType: 'application/json',
       data: JSON.stringify({
         previous_questions: previousQuestions,
-        quiz_category: this.state.quizCategory,
+        quiz_category: this.state.quizCategory.id,
       }),
       xhrFields: {
         withCredentials: true,
       },
       crossDomain: true,
       success: (result) => {
+        console.log("result2", result.question)
         this.setState({
           showAnswer: false,
           previousQuestions: previousQuestions,
