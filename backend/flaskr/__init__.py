@@ -3,6 +3,7 @@ from flask_cors import CORS
 import random
 
 from models import setup_db, Question, Category, db
+from sqlalchemy import cast, Integer
 
 QUESTIONS_PER_PAGE = 10
 
@@ -15,24 +16,55 @@ def create_app(test_config=None):
     else:
         database_path = test_config.get('SQLALCHEMY_DATABASE_URI')
         setup_db(app, database_path=database_path)
-
+  
+    with app.app_context():
+        db.create_all()
+        
     """
     @TODO: Set up CORS. Allow '*' for origins. Delete the sample route after completing the TODOs
     """
-    with app.app_context():
-        db.create_all()
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     """
     @TODO: Use the after_request decorator to set Access-Control-Allow
     """
+    @app.after_request
+    def after_request(response):
+        response.headers.add(
+            "Access-Control-Allow-Headers", "Content-Type,Authorization,true"
+        )
+        response.headers.add(
+            "Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS"
+        )
+        return response
 
     """
     @TODO:
     Create an endpoint to handle GET requests
     for all available categories.
     """
+    def formatted_categories(selection):
+        if not selection:
+            return {}
+        formated_categories = {category.id: category.type for category in selection}
 
+        return formated_categories
+    
+    @app.route("/categories")
+    
+    def retrieve_categories():
+       
+        categories=Category.query.all()
+        categories = formatted_categories(categories)
+    
 
+            
+        return jsonify(
+            {
+                "success": True,
+                "categories":categories,
+            }
+        ) 
     """
     @TODO:
     Create an endpoint to handle GET requests for questions,
@@ -45,6 +77,40 @@ def create_app(test_config=None):
     ten questions per page and pagination at the bottom of the screen for three pages.
     Clicking on the page numbers should update the questions.
     """
+    
+    
+    
+    QUESTIONS_PER_QUERY = 10
+    
+    def paginate_questions(request, selection):
+        if not selection:
+            return []
+        page = request.args.get("page", 1, type=int)
+        start = (page - 1) * QUESTIONS_PER_QUERY
+        end = start + QUESTIONS_PER_QUERY
+
+        questions = [question.format() for question in selection]
+        current_questions = questions[start:end]
+
+        return current_questions
+
+    
+    @app.route("/questions", methods=["GET"])
+    def retrieve_questions_with_categories():
+
+        selection = Question.query.outerjoin(Category, Category.id == cast(Question.category, Integer)).all()
+        current_questions = paginate_questions(request, selection)
+
+        categories = formatted_categories(Category.query.all())
+        
+        return jsonify({
+          "success": True,
+          "questions": current_questions,
+          "total_questions": len(selection),
+          "categories": categories,
+          "current_category": None
+      })
+
 
     """
     @TODO:
@@ -76,6 +142,25 @@ def create_app(test_config=None):
     Try using the word "title" to start.
     """
 
+    @app.route('/questions', methods=['POST'])
+    def search_questions(category_id):
+        body = request.get_json()
+        
+        if not body:
+            abort(400, description="Missing JSON body")
+        
+        search_term = body.get("searchTerm", None)
+        
+        if search_term:
+            data= Question.query.filter(Question.question.ilike(f"%{search_term}%")).all()
+            current_questions = paginate_questions(request, data)
+            
+        return jsonify({
+            "success": True,
+            "questions": current_questions,
+            "total_questions": len(data),
+            "current_category": category_id
+      })
     """
     @TODO:
     Create a GET endpoint to get questions based on category.
@@ -84,7 +169,19 @@ def create_app(test_config=None):
     categories in the left column will cause only questions of that
     category to be shown.
     """
-
+    @app.route("/categories/<int:category_id>/questions", methods=["GET"])
+    def retrive_questions_from_category(category_id):
+        questions_query = Question.query.outerjoin(Category, Category.id == cast(Question.category, Integer)).filter(Category.id == category_id).all()
+        
+        current_questions = paginate_questions(request, questions_query)
+       
+        return jsonify({
+          "success": True,
+          "questions": current_questions,
+          "total_questions": len(questions_query),
+          "current_category": category_id
+      })
+    
     """
     @TODO:
     Create a POST endpoint to get questions to play the quiz.
@@ -102,6 +199,36 @@ def create_app(test_config=None):
     Create error handlers for all expected errors
     including 404 and 422.
     """
-
+    @app.errorhandler(400)
+    def bad_request(error):
+        return jsonify({
+            "success": False,
+            "error": 400,
+            "message": str(error.description)
+        }), 400
+    
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({
+        "success": False,
+        "error": 404,
+        "message":"Not Found"    
+        }),404
+    
+    @app.errorhandler(422)
+    def unprocesable(error):
+        return jsonify({
+        "success": False,
+        "error": 422,
+        "message":"Unprocessable Content"    
+        }),422
+    
+    @app.errorhandler(405)
+    def method_not_allowed(error):
+        return jsonify({
+            "success": False,
+            "error": 405,
+            "message": "Method Not Allowed"
+        }), 405
     return app
 

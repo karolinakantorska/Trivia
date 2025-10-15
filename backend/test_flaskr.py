@@ -1,9 +1,12 @@
 import os
 import unittest
 
+from flask import json
+
 from flaskr import create_app
 from models import db, Question, Category
 
+from sqlalchemy import  Integer
 
 class TriviaTestCase(unittest.TestCase):
     """This class represents the trivia test case"""
@@ -30,14 +33,91 @@ class TriviaTestCase(unittest.TestCase):
 
     def tearDown(self):
         """Executed after each test"""
-        with self.app.app_context():
+        """with self.app.app_context():
             db.session.remove()
-            db.drop_all()
-
+            #db.drop_all()
+            db.session.execute(text("DROP SCHEMA public CASCADE;"))
+            db.session.execute(text("CREATE SCHEMA public;"))
+            db.session.commit()"""
     """
     TODO
     Write at least one test for each test for successful operation and for expected errors.
     """
+    
+    def test_get_categories(self):
+        res = self.client.get("/categories")
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(data["success"], True)
+        self.assertIsInstance(data["categories"], dict)
+    
+    
+    def test_get_categories_empty_db(self):
+        # Remove all categories
+        with self.app.app_context():
+            db.session.query(Category).delete()
+            db.session.commit()
+
+        res = self.client.get("/categories")
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIsInstance(data["categories"], dict)
+        self.assertEqual(len(data["categories"]), 0)
+
+    def test_get_paginated_questions(self):
+        
+        res = self.client.get("/questions")
+        print(res)
+        data = res.get_json()
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(data["success"], True)
+        self.assertIsInstance(data["categories"], dict)
+        self.assertTrue(data["total_questions"])
+        self.assertIsInstance(data["questions"], list)
+        
+    def test_post_questions_method_not_allowed(self):
+
+        res = self.client.put("/questions")
+        data = res.get_json()
+
+        self.assertEqual(res.status_code, 405)
+        self.assertFalse(data["success"])
+        self.assertIn("Method Not Allowed", data["message"])
+
+
+    def test_get_questions_from_valid_category(self):
+
+        res = self.client.get("/categories/2/questions")
+        data = res.get_json()
+
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(data["success"])
+        self.assertIsInstance(data["questions"], list)
+        self.assertEqual(data["current_category"], 2)
+        self.assertIsInstance(data["total_questions"], int)
+
+    def test_get_questions_from_invalid_category_id(self):
+
+        res = self.client.get("/categories/abc/questions")
+        self.assertEqual(res.status_code, 404)
+    
+    def search_questions(self):
+        
+        res = self.client.post("/questions",json={"searchTerm": "title"} )
+        
+        data = res.get_json()
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(data["success"])
+        self.assertIsInstance(data["questions"], list)
+        self.assertIsInstance(data["total_questions"], int)
+    
+    def search_questions_invalid_missing_field(self):
+        
+        res = self.client.post("/questions",json={} )
+        self.assertEqual(res.status_code, 400)
 
 
 # Make the tests conveniently executable
