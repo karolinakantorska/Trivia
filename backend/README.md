@@ -405,12 +405,12 @@ Write at least one test for the success and at least one error behavior of each 
 To deploy the tests, run
 
 for linux:
-sudo -u postgres psql trivia_test
 
-sudo -u postgres dropdb trivia_test --cascade
+sudo -u postgres dropdb trivia_test
 sudo -u postgres createdb trivia_test
 sudo -u postgres psql trivia_test < trivia.psql
 python3 test_flaskr.py
+
 ```bash
 dropdb trivia_test
 createdb trivia_test

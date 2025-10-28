@@ -31,6 +31,21 @@ class TriviaTestCase(unittest.TestCase):
         # Bind the app to the current context and create all tables
         with self.app.app_context():
             db.create_all()
+        
+
+            # Ensure categories exist before tests run
+            if not Category.query.all():
+                categories = [
+                    Category(type="Science"),
+                    Category(type="Art"),
+                    Category(type="Geography"),
+                    Category(type="History"),
+                    Category(type="Entertainment"),
+                    Category(type="Sports"),
+                ]
+                db.session.bulk_save_objects(categories)
+                db.session.commit()
+
 
     def tearDown(self):
         """Executed after each test"""
@@ -88,14 +103,19 @@ class TriviaTestCase(unittest.TestCase):
         self.assertIn("Method Not Allowed", data["message"])
 
     def test_get_questions_from_valid_category(self):
+        #Use an existing category dynamically
+        with self.app.app_context():
+            category = Category.query.first()
+            category_id = category.id if category else 1
 
-        res = self.client.get("/categories/2/questions")
+        #Request the same category we just fetched
+        res = self.client.get(f"/categories/{category_id}/questions")
         data = res.get_json()
 
         self.assertEqual(res.status_code, 200)
         self.assertTrue(data["success"])
         self.assertIsInstance(data["questions"], list)
-        self.assertEqual(data["current_category"], 2)
+        self.assertEqual(data["current_category"], category_id)
         self.assertIsInstance(data["total_questions"], int)
 
     def test_get_questions_from_invalid_category_id(self):
@@ -119,12 +139,16 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_add_questions(self):
-
+        # ensure category exists (was hardcoded to 1)
+        with self.app.app_context():
+            category = Category.query.first()
+            category_id = category.id if category else 1
+            
         res = self.client.post("/questions", json={
             "question": "Who sees better humar or cat?",
             "answer": "cat",
             "difficulty": 1,
-            "category": 1
+            "category": category_id
         })
         data = res.get_json()
 
@@ -142,12 +166,17 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_delete_question(self):
+        
         with self.app.app_context():
+            # use existing category id (avoid FK violation)
+            category = Category.query.first()
+            category_id = category.id if category else 1
+
             new_question = Question(
                 question="test question",
                 answer="test answer",
                 difficulty=1,
-                category="1"
+                category=str(category_id)
             )
             db.session.add(new_question)
             db.session.commit()
@@ -167,10 +196,14 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 404)
 
     def test_get_quizz_questions(self):
-
+        # ensure quiz_category uses existing category
+        with self.app.app_context():
+            category = Category.query.first()
+            category_id = category.id if category else 1
+            
         res = self.client.post("/quizzes", json={
             "previous_questions": [],
-            "quiz_category": "1"
+            "quiz_category": str(category_id)
         })
         data = res.get_json()
 
